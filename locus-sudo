@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# locus-sudo: run locus with elevated privileges so block / unblock / focus
+# can edit /etc/hosts. preserves $HOME so locus still reads your config from
+# ~/.config/locus and not /root/.config/locus.
+
+set -u
+
+# resolve real paths so sudo's secure_path reset can't lose them.
+# follow symlinks so the script works when linked into ~/.local/bin etc.
+self="$(readlink -f -- "${BASH_SOURCE[0]}")"
+script_dir="$(dirname -- "$self")"
+node_bin="$(command -v node || true)"
+
+if [[ -z "$node_bin" ]]; then
+  echo "locus-sudo: 'node' not on PATH" >&2
+  exit 1
+fi
+
+entry="$script_dir/dist/cli.js"
+
+if [[ ! -f "$entry" ]]; then
+  echo "locus-sudo: cannot find locus entry at $entry" >&2
+  echo "  build it first: (cd $script_dir && npm run build)" >&2
+  exit 1
+fi
+
+if [[ ${EUID:-$(id -u)} -eq 0 ]]; then
+  exec "$node_bin" "$entry" "$@"
+fi
+
+exec sudo --preserve-env=HOME,LOCUS_HOSTS_PATH,LOCUS_NO_BROWSER_RESTART,DISPLAY,WAYLAND_DISPLAY,XDG_RUNTIME_DIR,DBUS_SESSION_BUS_ADDRESS,XAUTHORITY,XDG_SESSION_TYPE \
+  "$node_bin" "$entry" "$@"
