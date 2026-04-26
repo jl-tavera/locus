@@ -1,5 +1,6 @@
 import Conf from 'conf';
 import { randomUUID } from 'node:crypto';
+import path from 'node:path';
 
 export interface Site {
   id: string;
@@ -47,6 +48,10 @@ export function getStore(): Conf<StoreSchema> {
 
 export function getStorePath(): string {
   return getStore().path;
+}
+
+export function getSessionsDbPath(): string {
+  return path.join(path.dirname(getStorePath()), 'sessions.db');
 }
 
 export function listSites(): Site[] {

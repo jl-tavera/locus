@@ -8,6 +8,40 @@ interface CountdownTimerProps {
   onComplete?: () => void;
 }
 
+const BAR_WIDTH = 62;
+
+const DIGIT_HEIGHT = 5;
+
+const DIGITS: Record<string, string[]> = {
+  '0': ['███', '█ █', '█ █', '█ █', '███'],
+  '1': ['  █', '  █', '  █', '  █', '  █'],
+  '2': ['███', '  █', '███', '█  ', '███'],
+  '3': ['███', '  █', '███', '  █', '███'],
+  '4': ['█ █', '█ █', '███', '  █', '  █'],
+  '5': ['███', '█  ', '███', '  █', '███'],
+  '6': ['███', '█  ', '███', '█ █', '███'],
+  '7': ['███', '  █', '  █', '  █', '  █'],
+  '8': ['███', '█ █', '███', '█ █', '███'],
+  '9': ['███', '█ █', '███', '  █', '███'],
+  ':': [' ', '█', ' ', '█', ' '],
+};
+
+function renderBigTime(text: string): string[] {
+  const rows: string[] = Array(DIGIT_HEIGHT).fill('');
+  const chars = [...text];
+  for (let i = 0; i < chars.length; i++) {
+    const ch = chars[i];
+    if (!ch) continue;
+    const glyph = DIGITS[ch];
+    if (!glyph) continue;
+    const sep = i < chars.length - 1 ? ' ' : '';
+    for (let r = 0; r < DIGIT_HEIGHT; r++) {
+      rows[r] += (glyph[r] ?? '') + sep;
+    }
+  }
+  return rows;
+}
+
 export function CountdownTimer({
   endsAt,
   totalMs,
@@ -30,13 +64,20 @@ export function CountdownTimer({
     if (remaining <= 0) onComplete?.();
   }, [remaining, onComplete]);
 
-  const barWidth = 32;
-  const filled = Math.round(ratio * barWidth);
-  const bar = '█'.repeat(filled) + '░'.repeat(Math.max(0, barWidth - filled));
+  const filled = Math.round(ratio * BAR_WIDTH);
+  const bar = '█'.repeat(filled) + '░'.repeat(Math.max(0, BAR_WIDTH - filled));
+
+  const bigRows = renderBigTime(formatRemaining(remaining));
 
   return (
     <Box flexDirection="column" alignItems="center">
-      <Text bold>{formatRemaining(remaining)}</Text>
+      <Box flexDirection="column" alignItems="center">
+        {bigRows.map((row, i) => (
+          <Text key={i} bold>
+            {row}
+          </Text>
+        ))}
+      </Box>
       <Box marginTop={1}>
         <Text dimColor>[{bar}]</Text>
       </Box>

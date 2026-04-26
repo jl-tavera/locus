@@ -25,8 +25,8 @@ export async function runFocus(profileName: string, durationStr: string): Promis
     React.createElement(FocusRunner, {
       profileName: profile.name,
       endsAt,
-      onCleanup: async () => {
-        await endFocus();
+      onCleanup: async (reason) => {
+        await endFocus(reason);
       },
     }),
     { exitOnCtrlC: false },

@@ -65,7 +65,7 @@ async function main(): Promise<void> {
     });
   profile
     .command('add <profile> <url>')
-    .description('add a site to a profile (auto-adds the site if new)')
+    .description('add an existing library site to a profile')
     .action(async (profileName: string, url: string) => {
       const { runProfileAdd } = await import('./commands/profile.js');
       await runProfileAdd(profileName, url).catch(fail);
@@ -108,6 +108,14 @@ async function main(): Promise<void> {
     .action(async () => {
       const { runStatus } = await import('./commands/status.js');
       await runStatus().catch(fail);
+    });
+
+  program
+    .command('streak')
+    .description('show focus session calendar and current streak')
+    .action(async () => {
+      const { runStreak } = await import('./commands/streak.js');
+      await runStreak().catch(fail);
     });
 
   program.action(async () => {

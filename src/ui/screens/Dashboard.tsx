@@ -1,6 +1,5 @@
 import React from 'react';
 import { Box, Text } from 'ink';
-import { Logo } from '../components/Logo.js';
 import { Menu, type MenuItem } from '../components/Menu.js';
 import type { ScreenName } from '../App.js';
 
@@ -12,6 +11,7 @@ const items: MenuItem<ScreenName>[] = [
   { label: 'sites', value: 'sites' },
   { label: 'profiles', value: 'profiles' },
   { label: 'focus', value: 'focus' },
+  { label: 'streak', value: 'streak' },
   { label: 'status', value: 'status' },
   { label: 'quit', value: 'quit' },
 ];
@@ -19,8 +19,7 @@ const items: MenuItem<ScreenName>[] = [
 export function Dashboard({ onNavigate }: DashboardProps): React.JSX.Element {
   return (
     <Box flexDirection="column" paddingX={2} paddingY={1}>
-      <Logo />
-      <Box marginTop={1} marginBottom={1}>
+      <Box marginBottom={1}>
         <Text dimColor>minimal site blocker · monochrome</Text>
       </Box>
       <Menu items={items} onSelect={(item) => onNavigate(item.value)} />

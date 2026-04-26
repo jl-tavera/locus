@@ -3,19 +3,19 @@ import { Box, Text, useInput } from 'ink';
 import TextInput from 'ink-text-input';
 import { Heading } from '../components/Heading.js';
 import {
-  addSiteToProfile,
   createProfile,
   deleteProfile,
-  getProfile,
   listProfiles,
-  removeSiteFromProfile,
+  toggleSiteInProfile,
   type ProfileWithSites,
 } from '../../core/profiles.js';
+import { listSites, type Site } from '../../core/store.js';
 
-type Mode = 'list' | 'creating' | 'detail' | 'addingSite';
+type Mode = 'list' | 'creating' | 'detail';
 
 export function Profiles(): React.JSX.Element {
   const [profiles, setProfiles] = useState<ProfileWithSites[]>(() => listProfiles());
+  const [library, setLibrary] = useState<Site[]>(() => listSites());
   const [mode, setMode] = useState<Mode>('list');
   const [cursor, setCursor] = useState(0);
   const [siteCursor, setSiteCursor] = useState(0);
@@ -26,18 +26,12 @@ export function Profiles(): React.JSX.Element {
   const refresh = () => {
     const next = listProfiles();
     setProfiles(next);
+    setLibrary(listSites());
     setCursor((c) => Math.min(c, Math.max(0, next.length - 1)));
   };
 
-  const refreshDetail = (profileName: string): ProfileWithSites | null => {
-    try {
-      return getProfile(profileName);
-    } catch {
-      return null;
-    }
-  };
-
-  const current = mode === 'detail' || mode === 'addingSite' ? profiles[cursor] : undefined;
+  const current = mode === 'detail' ? profiles[cursor] : undefined;
+  const memberIds = current ? new Set(current.sites.map((s) => s.id)) : new Set<string>();
 
   useInput((rawInput, key) => {
     if (mode === 'list') {
@@ -60,23 +54,25 @@ export function Profiles(): React.JSX.Element {
         }
       } else if (key.return && profiles.length > 0) {
         setSiteCursor(0);
+        setError(null);
+        setInfo(null);
         setMode('detail');
       }
     } else if (mode === 'detail') {
       if (!current) return;
       if (key.upArrow) setSiteCursor((c) => Math.max(0, c - 1));
       else if (key.downArrow)
-        setSiteCursor((c) => Math.min(current.sites.length - 1, c + 1));
-      else if (rawInput === 'a') {
-        setError(null);
-        setInput('');
-        setMode('addingSite');
-      } else if (rawInput === 'r' && current.sites.length > 0) {
-        const site = current.sites[siteCursor];
+        setSiteCursor((c) => Math.min(library.length - 1, c + 1));
+      else if (rawInput === ' ' || key.return) {
+        const site = library[siteCursor];
         if (!site) return;
         try {
-          removeSiteFromProfile(current.name, site.url);
-          setInfo(`removed ${site.url} from ${current.name}`);
+          const result = toggleSiteInProfile(current.name, site.id);
+          setInfo(
+            result.isMember
+              ? `added ${site.url} to ${current.name}`
+              : `removed ${site.url} from ${current.name}`,
+          );
           refresh();
         } catch (err) {
           setError(err instanceof Error ? err.message : String(err));
@@ -96,24 +92,6 @@ export function Profiles(): React.JSX.Element {
       setInfo(`created ${value}`);
       setInput('');
       setMode('list');
-      refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    }
-  };
-
-  const submitAddSite = () => {
-    if (!current) return;
-    const value = input.trim();
-    if (!value) {
-      setMode('detail');
-      return;
-    }
-    try {
-      const result = addSiteToProfile(current.name, value);
-      setInfo(`added ${result.siteUrl} to ${current.name}`);
-      setInput('');
-      setMode('detail');
       refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -145,17 +123,22 @@ export function Profiles(): React.JSX.Element {
       {mode === 'detail' && current ? (
         <Box flexDirection="column" marginBottom={1}>
           <Text dimColor>— {current.name.toLowerCase()} —</Text>
-          {current.sites.length === 0 ? (
-            <Text dimColor>(empty)</Text>
+          {library.length === 0 ? (
+            <Text dimColor>no sites in the library — add some from the sites screen</Text>
           ) : (
-            current.sites.map((s, idx) => (
-              <Box key={s.id}>
-                <Text>{idx === siteCursor ? '▌ ' : '  '}</Text>
-                <Text bold={idx === siteCursor} dimColor={idx !== siteCursor}>
-                  {s.url}
-                </Text>
-              </Box>
-            ))
+            library.map((s, idx) => {
+              const checked = memberIds.has(s.id);
+              const isSelected = idx === siteCursor;
+              return (
+                <Box key={s.id}>
+                  <Text>{isSelected ? '▌ ' : '  '}</Text>
+                  <Text>{checked ? '[x] ' : '[ ] '}</Text>
+                  <Text bold={isSelected} dimColor={!isSelected && !checked}>
+                    {s.url}
+                  </Text>
+                </Box>
+              );
+            })
           )}
         </Box>
       ) : null}
@@ -165,18 +148,8 @@ export function Profiles(): React.JSX.Element {
           <Text>new profile: </Text>
           <TextInput value={input} onChange={setInput} onSubmit={submitCreate} placeholder="Work" />
         </Box>
-      ) : mode === 'addingSite' ? (
-        <Box>
-          <Text>add site to {current?.name}: </Text>
-          <TextInput
-            value={input}
-            onChange={setInput}
-            onSubmit={submitAddSite}
-            placeholder="example.com"
-          />
-        </Box>
       ) : mode === 'detail' ? (
-        <Text dimColor>a add site · r remove site · esc back</Text>
+        <Text dimColor>space toggle · esc back</Text>
       ) : (
         <Text dimColor>c create · d delete · enter open · esc back</Text>
       )}

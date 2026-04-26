@@ -1,7 +1,6 @@
 import {
   type Profile,
   type Site,
-  addSite,
   createProfile as createProfileRaw,
   deleteProfile as deleteProfileRaw,
   findProfileByName,
@@ -67,24 +66,20 @@ export function getProfile(name: string): ProfileWithSites {
 export function addSiteToProfile(
   profileName: string,
   url: string,
-): { siteUrl: string; created: boolean; alreadyMember: boolean } {
+): { siteUrl: string; alreadyMember: boolean } {
   const normalized = normalizeUrl(url);
   const profile = requireProfile(profileName);
-  const existing = findSiteByUrl(normalized);
-  let created = false;
-  let siteId: string;
-  if (existing) {
-    siteId = existing.id;
-  } else {
-    const result = addSite(normalized);
-    siteId = result.site.id;
-    created = result.created;
+  const site = findSiteByUrl(normalized);
+  if (!site) {
+    throw new Error(
+      `"${normalized}" is not in the library. add it first: locus add ${normalized}`,
+    );
   }
-  const alreadyMember = profile.siteIds.includes(siteId);
+  const alreadyMember = profile.siteIds.includes(site.id);
   if (!alreadyMember) {
-    setProfileSites(profile.id, [...profile.siteIds, siteId]);
+    setProfileSites(profile.id, [...profile.siteIds, site.id]);
   }
-  return { siteUrl: normalized, created, alreadyMember };
+  return { siteUrl: normalized, alreadyMember };
 }
 
 export function removeSiteFromProfile(
@@ -101,6 +96,19 @@ export function removeSiteFromProfile(
     profile.siteIds.filter((id) => id !== site.id),
   );
   return { removed: true, siteUrl: normalized };
+}
+
+export function toggleSiteInProfile(
+  profileName: string,
+  siteId: string,
+): { isMember: boolean } {
+  const profile = requireProfile(profileName);
+  const isMember = profile.siteIds.includes(siteId);
+  const next = isMember
+    ? profile.siteIds.filter((id) => id !== siteId)
+    : [...profile.siteIds, siteId];
+  setProfileSites(profile.id, next);
+  return { isMember: !isMember };
 }
 
 export function getProfileHostnames(profileName: string): string[] {

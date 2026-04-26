@@ -11,6 +11,7 @@ import { getProfileHostnames } from './profiles.js';
 import { clearBlock, writeBlock } from './hosts.js';
 import { flushDns } from './dns.js';
 import { cycleBrowsers } from './browsers.js';
+import { recordSession, type SessionStatus } from './sessions.js';
 
 export const ALL_SITES_LABEL = 'all sites';
 
@@ -74,10 +75,45 @@ export async function startFocus(
   return { endsAt, profileName: displayName };
 }
 
-export async function endFocus(): Promise<void> {
+export async function endFocus(status: SessionStatus = 'completed'): Promise<void> {
+  const focus = getActiveFocus();
+  if (focus) {
+    const endedAt = new Date();
+    const startedAtMs = new Date(focus.startedAt).getTime();
+    const profileName =
+      focus.profileId === null
+        ? ALL_SITES_LABEL
+        : findProfileById(focus.profileId)?.name ?? '(deleted profile)';
+    try {
+      recordSession({
+        profileId: focus.profileId,
+        profileName,
+        startedAt: focus.startedAt,
+        endedAt: endedAt.toISOString(),
+        plannedMs: focus.durationMs,
+        actualMs: Math.max(0, endedAt.getTime() - startedAtMs),
+        status,
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(`warning: failed to record session (${msg})`);
+    }
+  }
   await clearBlock();
   await flushDns();
   clearActiveFocus();
+}
+
+export function peekActiveFocus(): { profileName: string; endsAt: Date } | null {
+  const focus = getActiveFocus();
+  if (!focus) return null;
+  const endsAt = new Date(focus.endsAt);
+  if (endsAt.getTime() <= Date.now()) return null;
+  const profileName =
+    focus.profileId === null
+      ? ALL_SITES_LABEL
+      : findProfileById(focus.profileId)?.name ?? '(deleted profile)';
+  return { profileName, endsAt };
 }
 
 export async function recoverFocus(): Promise<RecoveredFocus | null> {
@@ -85,7 +121,7 @@ export async function recoverFocus(): Promise<RecoveredFocus | null> {
   if (!focus) return null;
   const endsAt = new Date(focus.endsAt);
   if (endsAt.getTime() <= Date.now()) {
-    await endFocus();
+    await endFocus('completed');
     return null;
   }
   if (focus.profileId === null) {

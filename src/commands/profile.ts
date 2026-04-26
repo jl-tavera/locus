@@ -36,11 +36,7 @@ export async function runProfileAdd(profileName: string, url: string): Promise<v
     console.log(`${result.siteUrl} is already in ${profileName}`);
     return;
   }
-  if (result.created) {
-    console.log(`added ${result.siteUrl} to library and to profile ${profileName}`);
-  } else {
-    console.log(`added ${result.siteUrl} to profile ${profileName}`);
-  }
+  console.log(`added ${result.siteUrl} to profile ${profileName}`);
 }
 
 export async function runProfileRemove(profileName: string, url: string): Promise<void> {

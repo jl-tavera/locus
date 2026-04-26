@@ -5,8 +5,11 @@ import { Sites } from './screens/Sites.js';
 import { Profiles } from './screens/Profiles.js';
 import { Focus } from './screens/Focus.js';
 import { Status } from './screens/Status.js';
+import { Streak } from './screens/Streak.js';
+import { Logo } from './components/Logo.js';
+import { peekActiveFocus } from '../core/focus.js';
 
-export type ScreenName = 'dashboard' | 'sites' | 'profiles' | 'focus' | 'status' | 'quit';
+export type ScreenName = 'dashboard' | 'sites' | 'profiles' | 'focus' | 'status' | 'streak' | 'quit';
 
 interface AppProps {
   resumedFocus?: { profileName: string; endsAt: Date } | null;
@@ -30,7 +33,10 @@ export function App({ resumedFocus }: AppProps): React.JSX.Element {
   }
 
   return (
-    <Box>
+    <Box flexDirection="column">
+      <Box paddingX={2} paddingTop={1}>
+        <Logo />
+      </Box>
       {screen === 'dashboard' ? (
         <Dashboard
           onNavigate={(s) => {
@@ -44,9 +50,11 @@ export function App({ resumedFocus }: AppProps): React.JSX.Element {
         <Profiles />
       ) : screen === 'focus' ? (
         <Focus
-          resumed={resumedFocus ?? undefined}
+          resumed={peekActiveFocus() ?? resumedFocus ?? undefined}
           onExit={() => setScreen('dashboard')}
         />
+      ) : screen === 'streak' ? (
+        <Streak />
       ) : (
         <Status />
       )}

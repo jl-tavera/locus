@@ -53,6 +53,7 @@ locus block <name>                    write a profile's sites to the hosts file
 locus unblock                         clear the LOCUS block
 locus focus <name> <duration>         block for a duration with a live countdown
 locus status                          current block + active focus
+locus streak                          contribution calendar + current streak
 ```
 
 Durations parse `1h`, `25m`, `90s`, `1h30m`. URL inputs are normalized: scheme,
@@ -73,6 +74,7 @@ select with Enter, return with Esc, quit with `q` from the dashboard.
   ▌ sites
     profiles
     focus
+    streak
     status
     quit
 
@@ -82,14 +84,20 @@ select with Enter, return with Esc, quit with `q` from the dashboard.
 Screens:
 - **sites** — add (`a`), delete selected (`d`)
 - **profiles** — create (`c`), delete (`d`), open (Enter); inside a profile, add (`a`) / remove (`r`) sites
-- **focus** — pick profile → enter duration → live countdown with progress bar
+- **focus** — pick profile (or `all sites`) → enter duration → live countdown with progress bar
+- **streak** — GitHub-style contribution calendar of completed focus sessions, current streak + longest, total minutes, busiest day
 - **status** — current hosts block + remaining focus time
 
 ## focus mode
 
-`locus focus Work 25m` writes the block, starts a centered MM:SS countdown,
-auto-unblocks at zero, and flushes the OS DNS cache. Press Ctrl-C during the
-session and you'll be prompted to confirm an early end (`y/N`).
+`locus focus Work 25m` writes the block, starts a centered MM:SS countdown
+rendered in bold 5-row block digits, auto-unblocks at zero, and flushes the OS
+DNS cache. Press Ctrl-C during the session and you'll be prompted to confirm an
+early end (`y/N`). Completed and cancelled sessions are both recorded; only
+completed sessions count toward streaks.
+
+From the TUI you can also focus over the entire library by picking `all sites`
+instead of a named profile.
 
 When a block lands, locus closes and reopens any running Chromium-family or
 Firefox browser (brave, chromium, chrome, firefox, zen). Browsers cache DNS
@@ -107,6 +115,7 @@ launch checks `activeFocus.endsAt`:
 
 ```
 ~/.config/locus/config.json          sites + profiles + active focus     (Linux/XDG)
+~/.config/locus/sessions.db          completed/cancelled focus sessions (SQLite)
 ~/.config/locus/backups/             timestamped hosts backups (last 10)
 ```
 
@@ -115,6 +124,11 @@ On macOS: `~/Library/Application Support/locus/`. On Windows: `%APPDATA%\locus\`
 Every write to the hosts file is preceded by a backup
 (`hosts.<ISO-timestamp>.bak`). The backup directory is pruned to the most recent
 10 by mtime.
+
+Sessions are stored in a small SQLite database (better-sqlite3, WAL journal):
+`id`, profile name + id, started/ended timestamps, planned vs actual duration,
+and status (`completed` / `cancelled`). The streak screen reads this table to
+build the contribution calendar.
 
 ## development
 
@@ -147,8 +161,37 @@ without sudo. The store and backup directories are unchanged.
 - Pre-existing entries are preserved on every block / unblock cycle.
 - DNS flush is best-effort; it never fails the parent operation.
 
+## streak + contribution calendar
+
+`locus streak` (or the streak screen in the TUI) renders the last 53 weeks of
+completed focus sessions as a GitHub-style heatmap:
+
+```
+   jan       feb       mar       apr   …
+   · · · ░ · ▒ · · ▓ · · █ · · ░ · · · · …
+m  · ░ · · ▒ · ▓ · · · █ · · · · · ▒ · …
+   · · · ▒ · · · ▓ · · · █ · · · ░ · · …
+w  · ▓ · · · ▒ · · · █ · · · ░ · · ▒ · …
+…
+```
+
+Each cell is one day. Intensity is bucketed by quartiles of daily focus minutes
+(empty / q1 / q2 / q3 / top), so the scale auto-adjusts to your own habits
+rather than a fixed threshold. Below the grid:
+
+```
+total: 42 sessions · 17h 35m
+current streak: 4 days · longest: 11 days
+busiest: 2026-03-14 (5 sessions, 2h 30m)
+```
+
+Only sessions with status `completed` count toward the calendar and streak.
+Cancelling early (Ctrl-C → `y`) records the session but it does not advance
+the streak.
+
 ## design
 
 Strict greyscale palette. No coloured accents, no spinners screaming for
 attention. Hierarchy comes from `bold` + `dimColor` + rounded grey borders.
 Section headings are lowercase em-dash style: `— sites —`, `— profiles —`.
+The countdown timer uses 5-row solid block digits for legibility at a glance.
