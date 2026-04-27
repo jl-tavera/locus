@@ -21,7 +21,8 @@ export function App({ resumedFocus }: AppProps): React.JSX.Element {
 
   useInput((input, key) => {
     if (key.escape && screen !== 'dashboard') {
-      setScreen('dashboard');
+      const focusRunning = screen === 'focus' && peekActiveFocus() !== null;
+      if (!focusRunning) setScreen('dashboard');
     } else if ((input === 'q' || (key.ctrl && input === 'c')) && screen === 'dashboard') {
       exit();
     }
