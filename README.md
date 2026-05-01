@@ -37,6 +37,29 @@ try: sudo locus  (or run from an elevated terminal on windows)
 Read-only commands (`add`, `remove`, `list`, `profile *`, `status`) work without
 sudo.
 
+## WSL
+
+Just run `locus`. The first time you launch it on WSL you'll see a single
+UAC prompt — accept once, and from then on `locus`, `locus block`, and
+`locus focus` work from any normal WSL terminal exactly like on Linux. No
+admin terminal, no `sudo`.
+
+Behind the scenes locus is granting your Windows user `Modify` on
+`C:\Windows\System32\drivers\etc\hosts` (the file Windows browsers
+consult). To re-run the setup explicitly: `locus setup`. To revert, open
+that file's Windows Properties → Security tab and remove your user's
+entry.
+
+If you cancel the UAC prompt, the TUI still opens in read-only mode —
+sites, profiles, status, and streak all work, only the write commands
+(`block`, `unblock`, `focus`) need the grant. Run `locus setup` later to
+enable them.
+
+locus targets the Windows hosts file (not WSL's `/etc/hosts`) so blocks
+apply to Chrome, Edge, Brave, and Firefox running on the Windows host.
+Browser cycling uses `taskkill.exe` and DNS flush uses `ipconfig.exe
+/flushdns`, so blocks land the moment a focus session starts.
+
 ## commands
 
 ```

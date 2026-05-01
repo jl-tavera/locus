@@ -1,6 +1,7 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
+import { getPlatform } from './platform.js';
 
 export const SENTINEL_START = '# >>> LOCUS START';
 export const SENTINEL_END = '# <<< LOCUS END';
@@ -14,8 +15,12 @@ export interface HostsOpts {
 
 export function getHostsPath(): string {
   if (process.env.LOCUS_HOSTS_PATH) return process.env.LOCUS_HOSTS_PATH;
-  if (process.platform === 'win32') {
+  const platform = getPlatform();
+  if (platform === 'win32') {
     return 'C:\\Windows\\System32\\drivers\\etc\\hosts';
+  }
+  if (platform === 'wsl') {
+    return '/mnt/c/Windows/System32/drivers/etc/hosts';
   }
   return '/etc/hosts';
 }

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # locus-sudo: run locus with elevated privileges so block / unblock / focus
-# can edit /etc/hosts. preserves $HOME so locus still reads your config from
+# can edit the hosts file. preserves $HOME so locus still reads your config from
 # ~/.config/locus and not /root/.config/locus.
 
 set -u
@@ -21,6 +21,17 @@ entry="$script_dir/dist/cli.js"
 if [[ ! -f "$entry" ]]; then
   echo "locus-sudo: cannot find locus entry at $entry" >&2
   echo "  build it first: (cd $script_dir && npm run build)" >&2
+  exit 1
+fi
+
+# WSL: sudo is the wrong tool — Windows ACLs gate the Windows hosts file,
+# not Linux UID. Point users at the one-time setup instead.
+if grep -qiE 'microsoft|wsl' /proc/version 2>/dev/null \
+   || grep -qiE 'microsoft|wsl' /proc/sys/kernel/osrelease 2>/dev/null; then
+  echo "locus-sudo: detected WSL." >&2
+  echo "  on WSL, run 'locus setup' once (prompts UAC) to grant your Windows" >&2
+  echo "  user write access to the hosts file. after that, just run 'locus'" >&2
+  echo "  from any terminal — no sudo wrapper needed." >&2
   exit 1
 fi
 

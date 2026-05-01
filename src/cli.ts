@@ -118,6 +118,14 @@ async function main(): Promise<void> {
       await runStreak().catch(fail);
     });
 
+  program
+    .command('setup')
+    .description('one-time WSL setup: grant your Windows user write access to the hosts file')
+    .action(async () => {
+      const { runSetup } = await import('./commands/setup.js');
+      await runSetup().catch(fail);
+    });
+
   program.action(async () => {
     const { launchTui } = await import('./ui/launch.js');
     await launchTui().catch(fail);
