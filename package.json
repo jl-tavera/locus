@@ -16,7 +16,9 @@
     "build": "tsup && chmod +x dist/cli.js",
     "dev": "tsup --watch",
     "start": "node dist/cli.js",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "better-sqlite3": "^12.9.0",
@@ -34,6 +36,7 @@
     "@types/node": "^22.10.0",
     "@types/react": "^18.3.12",
     "tsup": "^8.3.5",
-    "typescript": "^5.6.3"
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.8"
   }
 }

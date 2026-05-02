@@ -9,11 +9,20 @@ npm install
 npm run dev          # tsup --watch — bundles src/cli.ts → dist/cli.js
 npm run build        # tsup + chmod +x dist/cli.js (adds the `#!/usr/bin/env node` banner)
 npm run typecheck    # tsc --noEmit (strict, noUncheckedIndexedAccess)
+npm run test         # vitest run — unit + integration suite under tests/
+npm run test:watch   # vitest in watch mode
 npm run start        # node dist/cli.js
 npm link             # exposes `locus` globally after build
 ```
 
-There is no test runner and no linter wired up — `typecheck` is the only static check.
+No linter is wired up. `typecheck` covers `src/`; `test` exercises the suite under `tests/`. CI (`.github/workflows/ci.yml`) runs typecheck + tests + build on every push to `main` and on pull requests.
+
+### Tests
+
+- `tests/unit/` — pure-function tests (url, duration, streak, calendar). No I/O.
+- `tests/integration/` — exercises real files: `hosts-write.test.ts` writes to a tmp file via `HostsOpts`, `sessions.test.ts` and `store.test.ts` redirect Conf + sqlite via a tmp `XDG_CONFIG_HOME`.
+- `tests/helpers/tmp-env.ts` — `makeTmpHosts()` / `setTmpXdg()` provision per-test sandboxes.
+- Vitest runs with `pool: 'forks'` so each test file gets a fresh worker; that's important because `src/core/store.ts` and `src/core/sessions.ts` cache singletons in module scope and would otherwise leak state between files.
 
 ### Running locally without sudo
 
