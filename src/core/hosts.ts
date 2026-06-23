@@ -19,13 +19,13 @@ export function getHostsPath(): string {
   if (platform === 'win32') {
     return 'C:\\Windows\\System32\\drivers\\etc\\hosts';
   }
-  if (platform === 'wsl') {
-    return '/mnt/c/Windows/System32/drivers/etc/hosts';
-  }
   return '/etc/hosts';
 }
 
 export function getDefaultBackupDir(): string {
+  // Keep backups beside the config when it's pinned (tests, custom locations).
+  const configDir = process.env.LOCUS_CONFIG_DIR;
+  if (configDir) return path.join(configDir, 'backups');
   const platform = process.platform;
   const home = os.homedir();
   if (platform === 'darwin') {
@@ -117,6 +117,16 @@ async function pruneBackups(backupDir: string): Promise<void> {
 }
 
 async function atomicWrite(targetPath: string, content: string): Promise<void> {
+  // On Windows the hosts file sits in a system directory the user can't write
+  // to — `locus setup` grants Modify on the *file* only, not the directory — so
+  // we can't create a sibling temp file there to rename over. Write in place
+  // instead: truncate+write only needs WRITE_DATA on the granted file. We lose
+  // rename-atomicity, but backupHosts() runs immediately before every write and
+  // the file is tiny, so a fresh backup is always available for recovery.
+  if (getPlatform() === 'win32') {
+    await fs.writeFile(targetPath, content);
+    return;
+  }
   const tmpPath = `${targetPath}.locus.tmp`;
   await fs.writeFile(tmpPath, content, { mode: 0o644 });
   await fs.rename(tmpPath, targetPath);

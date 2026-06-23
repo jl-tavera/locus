@@ -14,7 +14,7 @@ export interface Profile {
   siteIds: string[];
 }
 
-export interface ActiveFocus {
+export interface UnlockWindow {
   profileId: string | null;
   startedAt: string;
   durationMs: number;
@@ -24,23 +24,32 @@ export interface ActiveFocus {
 export interface StoreSchema {
   sites: Site[];
   profiles: Profile[];
-  activeFocus: ActiveFocus | null;
+  // which profile is the always-locked set; null = the entire library ("all sites")
+  lockProfileId: string | null;
+  // present while sites are temporarily unlocked; null means locked
+  activeUnlock: UnlockWindow | null;
 }
 
 const defaults: StoreSchema = {
   sites: [],
   profiles: [],
-  activeFocus: null,
+  lockProfileId: null,
+  activeUnlock: null,
 };
 
 let cached: Conf<StoreSchema> | null = null;
 
 export function getStore(): Conf<StoreSchema> {
   if (!cached) {
+    // LOCUS_CONFIG_DIR pins the config + sqlite dir to an explicit location on
+    // every OS (tests use it to sandbox). Without it, conf picks the per-OS
+    // default — %APPDATA% on Windows, XDG/~/.config on Linux, Library on macOS.
+    const cwd = process.env.LOCUS_CONFIG_DIR;
     cached = new Conf<StoreSchema>({
       projectName: 'locus',
       projectSuffix: '',
       defaults,
+      ...(cwd ? { cwd } : {}),
     });
   }
   return cached;
@@ -135,14 +144,22 @@ export function setProfileSites(profileId: string, siteIds: string[]): void {
   store.set('profiles', profiles);
 }
 
-export function getActiveFocus(): ActiveFocus | null {
-  return getStore().get('activeFocus');
+export function getLockProfileId(): string | null {
+  return getStore().get('lockProfileId');
 }
 
-export function setActiveFocus(focus: ActiveFocus): void {
-  getStore().set('activeFocus', focus);
+export function setLockProfileId(id: string | null): void {
+  getStore().set('lockProfileId', id);
 }
 
-export function clearActiveFocus(): void {
-  getStore().set('activeFocus', null);
+export function getActiveUnlock(): UnlockWindow | null {
+  return getStore().get('activeUnlock');
+}
+
+export function setActiveUnlock(window: UnlockWindow): void {
+  getStore().set('activeUnlock', window);
+}
+
+export function clearActiveUnlock(): void {
+  getStore().set('activeUnlock', null);
 }

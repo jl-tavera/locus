@@ -13,7 +13,7 @@
     "node": ">=20"
   },
   "scripts": {
-    "build": "tsup && chmod +x dist/cli.js",
+    "build": "tsup && node -e \"require('fs').chmodSync('dist/cli.js', 0o755)\"",
     "dev": "tsup --watch",
     "start": "node dist/cli.js",
     "typecheck": "tsc --noEmit",

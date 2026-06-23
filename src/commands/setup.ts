@@ -13,8 +13,8 @@ export async function runSetup(): Promise<void> {
   }
 
   switch (result.reason) {
-    case 'not-wsl':
-      console.log('setup is only needed on WSL — nothing to do.');
+    case 'not-windows':
+      console.log('setup is only needed on Windows — nothing to do.');
       return;
     case 'declined':
       console.error('cancelled. (UAC prompt was declined.)');

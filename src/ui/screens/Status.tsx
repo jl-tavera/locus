@@ -2,8 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { Box, Text } from 'ink';
 import { Heading } from '../components/Heading.js';
 import { getActiveBlock } from '../../core/hosts.js';
-import { findProfileById, getActiveFocus } from '../../core/store.js';
-import { ALL_SITES_LABEL } from '../../core/focus.js';
+import { getActiveUnlock } from '../../core/store.js';
+import { getLockLabel, getLockHostnames } from '../../core/lock.js';
 import { formatRemaining } from '../../utils/duration.js';
 
 export function Status(): React.JSX.Element {
@@ -22,13 +22,10 @@ export function Status(): React.JSX.Element {
     };
   }, []);
 
-  const focus = getActiveFocus();
-  const focusLabel = focus
-    ? focus.profileId === null
-      ? ALL_SITES_LABEL
-      : findProfileById(focus.profileId)?.name ?? '(deleted profile)'
-    : null;
-  const remainingMs = focus ? new Date(focus.endsAt).getTime() - Date.now() : 0;
+  const label = getLockLabel();
+  const unlock = getActiveUnlock();
+  const remainingMs = unlock ? new Date(unlock.endsAt).getTime() - Date.now() : 0;
+  const unlocked = unlock !== null && remainingMs > 0;
 
   return (
     <Box flexDirection="column" paddingX={2} paddingY={1}>
@@ -36,14 +33,19 @@ export function Status(): React.JSX.Element {
       <Box marginTop={1} flexDirection="column">
         {blocked === null ? (
           <Text dimColor>reading hosts…</Text>
-        ) : blocked.length === 0 ? (
-          <Text dimColor>block: inactive</Text>
-        ) : (
+        ) : unlocked ? (
+          <Text>
+            <Text bold>unlocked</Text>{' '}
+            <Text dimColor>
+              ({label}) · {formatRemaining(remainingMs)} until re-lock
+            </Text>
+          </Text>
+        ) : blocked.length > 0 ? (
           <>
             <Text>
-              block: <Text bold>active</Text>{' '}
+              <Text bold>locked</Text>{' '}
               <Text dimColor>
-                ({blocked.length} site{blocked.length === 1 ? '' : 's'})
+                ({label}, {blocked.length} site{blocked.length === 1 ? '' : 's'})
               </Text>
             </Text>
             {blocked.map((host) => (
@@ -52,18 +54,10 @@ export function Status(): React.JSX.Element {
               </Text>
             ))}
           </>
-        )}
-      </Box>
-      <Box marginTop={1}>
-        {!focus ? (
-          <Text dimColor>focus: inactive</Text>
-        ) : remainingMs <= 0 ? (
-          <Text dimColor>focus: expired</Text>
+        ) : getLockHostnames().length === 0 ? (
+          <Text dimColor>nothing locked yet — add sites, then run locus lock</Text>
         ) : (
-          <Text>
-            focus: <Text bold>{focusLabel}</Text>{' '}
-            <Text dimColor>· {formatRemaining(remainingMs)} remaining</Text>
-          </Text>
+          <Text dimColor>not enforced — run locus lock to block the set</Text>
         )}
       </Box>
     </Box>

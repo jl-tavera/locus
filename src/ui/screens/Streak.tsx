@@ -57,7 +57,7 @@ export function Streak({ cliMode = false }: Props): React.JSX.Element {
               <Text>
                 <Text dimColor>total: </Text>
                 <Text bold>
-                  {data.cal.totalSessions} session{data.cal.totalSessions === 1 ? '' : 's'}
+                  {data.cal.totalSessions} unlock{data.cal.totalSessions === 1 ? '' : 's'}
                 </Text>
                 <Text dimColor> · {formatMinutes(data.cal.totalMinutes)}</Text>
               </Text>
@@ -73,7 +73,7 @@ export function Streak({ cliMode = false }: Props): React.JSX.Element {
               </Text>
               {data.cal.busiestDay && data.cal.totalSessions > 0 ? (
                 <Text dimColor>
-                  busiest: {data.cal.busiestDay.date} ({data.cal.busiestDay.sessions} session
+                  busiest: {data.cal.busiestDay.date} ({data.cal.busiestDay.sessions} unlock
                   {data.cal.busiestDay.sessions === 1 ? '' : 's'},{' '}
                   {formatMinutes(data.cal.busiestDay.minutes)})
                 </Text>

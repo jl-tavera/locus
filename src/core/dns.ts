@@ -11,9 +11,6 @@ export async function flushDns(): Promise<void> {
       case 'win32':
         await execa('ipconfig', ['/flushdns']);
         break;
-      case 'wsl':
-        await execa('ipconfig.exe', ['/flushdns']);
-        break;
       case 'linux':
       default:
         await execa('resolvectl', ['flush-caches']);

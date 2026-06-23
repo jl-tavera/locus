@@ -9,7 +9,8 @@ import {
   toggleSiteInProfile,
   type ProfileWithSites,
 } from '../../core/profiles.js';
-import { listSites, type Site } from '../../core/store.js';
+import { getLockProfileId, listSites, type Site } from '../../core/store.js';
+import { ALL_SITES_LABEL, getLockLabel, setLockProfile } from '../../core/lock.js';
 
 type Mode = 'list' | 'creating' | 'detail';
 
@@ -22,6 +23,7 @@ export function Profiles(): React.JSX.Element {
   const [input, setInput] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
+  const [lockId, setLockId] = useState<string | null>(() => getLockProfileId());
 
   const refresh = () => {
     const next = listProfiles();
@@ -52,6 +54,24 @@ export function Profiles(): React.JSX.Element {
         } catch (err) {
           setError(err instanceof Error ? err.message : String(err));
         }
+      } else if (rawInput === 'l' && profiles.length > 0) {
+        const profile = profiles[cursor];
+        if (!profile) return;
+        setError(null);
+        void setLockProfile(profile.id)
+          .then(() => {
+            setLockId(profile.id);
+            setInfo(`locked set: ${profile.name}`);
+          })
+          .catch((err) => setError(err instanceof Error ? err.message : String(err)));
+      } else if (rawInput === 'a') {
+        setError(null);
+        void setLockProfile(null)
+          .then(() => {
+            setLockId(null);
+            setInfo(`locked set: ${ALL_SITES_LABEL}`);
+          })
+          .catch((err) => setError(err instanceof Error ? err.message : String(err)));
       } else if (key.return && profiles.length > 0) {
         setSiteCursor(0);
         setError(null);
@@ -101,6 +121,9 @@ export function Profiles(): React.JSX.Element {
   return (
     <Box flexDirection="column" paddingX={2} paddingY={1}>
       <Heading>profiles</Heading>
+      <Box marginTop={1}>
+        <Text dimColor>locked set: {lockId === null ? ALL_SITES_LABEL : getLockLabel()}</Text>
+      </Box>
       <Box marginTop={1} marginBottom={1} flexDirection="column">
         {profiles.length === 0 ? (
           <Text dimColor>no profiles yet</Text>
@@ -114,6 +137,7 @@ export function Profiles(): React.JSX.Element {
                   {p.name}
                 </Text>
                 <Text dimColor>  ·  {p.sites.length} site{p.sites.length === 1 ? '' : 's'}</Text>
+                {p.id === lockId ? <Text dimColor>  · locked</Text> : null}
               </Box>
             );
           })
@@ -151,7 +175,7 @@ export function Profiles(): React.JSX.Element {
       ) : mode === 'detail' ? (
         <Text dimColor>space toggle · esc back</Text>
       ) : (
-        <Text dimColor>c create · d delete · enter open · esc back</Text>
+        <Text dimColor>c create · d delete · enter open · l lock profile · a lock all · esc back</Text>
       )}
 
       {info ? (

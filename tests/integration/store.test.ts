@@ -1,36 +1,38 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
-import { setTmpXdg, type TmpXdg } from '../helpers/tmp-env.js';
+import path from 'node:path';
+import { setTmpConfigDir, type TmpConfigDir } from '../helpers/tmp-env.js';
 
-let xdg: TmpXdg;
+let tmp: TmpConfigDir;
 let store: typeof import('../../src/core/store.js');
 
 beforeAll(async () => {
-  xdg = setTmpXdg();
+  tmp = setTmpConfigDir();
   store = await import('../../src/core/store.js');
 });
 
 afterAll(() => {
-  xdg.cleanup();
+  tmp.cleanup();
 });
 
 beforeEach(() => {
   const s = store.getStore();
   s.set('sites', []);
   s.set('profiles', []);
-  s.set('activeFocus', null);
+  s.set('lockProfileId', null);
+  s.set('activeUnlock', null);
 });
 
 describe('store', () => {
-  it('isolates state under the tmp XDG_CONFIG_HOME', () => {
-    expect(store.getStorePath().startsWith(xdg.configHome)).toBe(true);
+  it('isolates state under the tmp config dir', () => {
+    expect(store.getStorePath().startsWith(tmp.configDir)).toBe(true);
   });
 
   it('derives sessions DB path next to the config file', () => {
     const cfg = store.getStorePath();
     const db = store.getSessionsDbPath();
     expect(db.endsWith('sessions.db')).toBe(true);
-    // both should sit in the same directory
-    expect(db.slice(0, db.lastIndexOf('/'))).toBe(cfg.slice(0, cfg.lastIndexOf('/')));
+    // both should sit in the same directory (path-separator agnostic)
+    expect(path.dirname(db)).toBe(path.dirname(cfg));
   });
 
   it('starts with empty sites and profiles', () => {
@@ -71,17 +73,25 @@ describe('store', () => {
     expect(store.deleteProfile('deep work').removed).toBe(false);
   });
 
-  it('activeFocus round-trips and clears', () => {
-    expect(store.getActiveFocus()).toBeNull();
-    const focus = {
+  it('lockProfileId round-trips', () => {
+    expect(store.getLockProfileId()).toBeNull();
+    store.setLockProfileId('p1');
+    expect(store.getLockProfileId()).toBe('p1');
+    store.setLockProfileId(null);
+    expect(store.getLockProfileId()).toBeNull();
+  });
+
+  it('activeUnlock round-trips and clears', () => {
+    expect(store.getActiveUnlock()).toBeNull();
+    const window = {
       profileId: 'p1',
       startedAt: new Date().toISOString(),
-      durationMs: 25 * 60_000,
-      endsAt: new Date(Date.now() + 25 * 60_000).toISOString(),
+      durationMs: 15 * 60_000,
+      endsAt: new Date(Date.now() + 15 * 60_000).toISOString(),
     };
-    store.setActiveFocus(focus);
-    expect(store.getActiveFocus()).toEqual(focus);
-    store.clearActiveFocus();
-    expect(store.getActiveFocus()).toBeNull();
+    store.setActiveUnlock(window);
+    expect(store.getActiveUnlock()).toEqual(window);
+    store.clearActiveUnlock();
+    expect(store.getActiveUnlock()).toBeNull();
   });
 });

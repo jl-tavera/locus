@@ -1,23 +1,26 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import Database from 'better-sqlite3';
-import { setTmpXdg, type TmpXdg } from '../helpers/tmp-env.js';
+import { setTmpConfigDir, type TmpConfigDir } from '../helpers/tmp-env.js';
 
 // must set env BEFORE the Conf singleton is constructed; vitest pool: 'forks'
 // guarantees each test file gets a fresh worker process so this is safe.
-let xdg: TmpXdg;
+let tmp: TmpConfigDir;
 let recordSession: typeof import('../../src/core/sessions.js').recordSession;
 let listAllSessions: typeof import('../../src/core/sessions.js').listAllSessions;
 let listSessionsSince: typeof import('../../src/core/sessions.js').listSessionsSince;
+let closeDb: typeof import('../../src/core/sessions.js').closeDb;
 let getSessionsDbPath: typeof import('../../src/core/store.js').getSessionsDbPath;
 
 beforeAll(async () => {
-  xdg = setTmpXdg();
-  ({ recordSession, listAllSessions, listSessionsSince } = await import('../../src/core/sessions.js'));
+  tmp = setTmpConfigDir();
+  ({ recordSession, listAllSessions, listSessionsSince, closeDb } = await import('../../src/core/sessions.js'));
   ({ getSessionsDbPath } = await import('../../src/core/store.js'));
 });
 
 afterAll(() => {
-  xdg.cleanup();
+  // close the sqlite handle first — Windows can't delete the dir while it's open
+  closeDb();
+  tmp.cleanup();
 });
 
 beforeEach(() => {

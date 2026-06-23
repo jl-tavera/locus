@@ -59,6 +59,13 @@ function getDb(): Database.Database {
   return conn;
 }
 
+export function closeDb(): void {
+  if (db) {
+    db.close();
+    db = null;
+  }
+}
+
 function rowToSession(r: Row): Session {
   return {
     id: r.id,

@@ -5,7 +5,8 @@ import {
   deleteProfile as deleteProfileRaw,
   findProfileByName,
   findSiteByUrl,
-  getActiveFocus,
+  getActiveUnlock,
+  getLockProfileId,
   listProfilesRaw,
   listSites,
   setProfileSites,
@@ -31,9 +32,12 @@ export function createProfile(name: string): Profile {
 export function deleteProfile(name: string): void {
   const profile = findProfileByName(name);
   if (!profile) throw new Error(`profile "${name}" not found`);
-  const focus = getActiveFocus();
-  if (focus && focus.profileId === profile.id) {
-    throw new Error(`cannot delete "${name}" while a focus session is using it`);
+  if (getLockProfileId() === profile.id) {
+    throw new Error(`cannot delete "${name}" — it's the locked profile. switch the lock first.`);
+  }
+  const unlock = getActiveUnlock();
+  if (unlock && unlock.profileId === profile.id) {
+    throw new Error(`cannot delete "${name}" while it's unlocked. re-lock first.`);
   }
   deleteProfileRaw(name);
 }

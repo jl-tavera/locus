@@ -21,17 +21,11 @@ export async function requireElevated(): Promise<void> {
 
 function elevationMessage(): string[] {
   switch (getPlatform()) {
-    case 'wsl':
-      return [
-        'locus needs write access to the Windows hosts file.',
-        'fix: run  locus setup  (one-time, prompts UAC) — then any terminal works.',
-        'or: relaunch your terminal as administrator.',
-        '(sudo inside WSL is not enough — Windows ACLs gate this file.)',
-      ];
     case 'win32':
       return [
-        'locus needs admin privileges to edit the hosts file.',
-        'right-click your terminal and choose "Run as administrator", then run locus again.',
+        'locus needs write access to the Windows hosts file.',
+        'fix: run  locus setup  (one-time, prompts UAC) — then any PowerShell works.',
+        'or: relaunch your terminal as administrator.',
       ];
     case 'darwin':
     case 'linux':

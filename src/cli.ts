@@ -1,5 +1,5 @@
 import { Command } from 'commander';
-import { recoverFocus } from './core/focus.js';
+import { recover } from './core/lock.js';
 
 async function fail(err: unknown): Promise<never> {
   const message = err instanceof Error ? err.message : String(err);
@@ -8,12 +8,12 @@ async function fail(err: unknown): Promise<never> {
 }
 
 async function main(): Promise<void> {
-  await recoverFocus();
+  await recover();
 
   const program = new Command();
   program
     .name('locus')
-    .description('block sites by editing your hosts file. minimal, monochrome, focused.')
+    .description('keep sites locked by default; solve a challenge to unlock for a few minutes.')
     .version('0.1.0');
 
   program
@@ -79,32 +79,24 @@ async function main(): Promise<void> {
     });
 
   program
-    .command('block <profile>')
-    .description("write that profile's sites to the hosts file")
-    .action(async (profileName: string) => {
-      const { runBlock } = await import('./commands/block.js');
-      await runBlock(profileName).catch(fail);
+    .command('lock [profile]')
+    .description('block the locked set now (optionally switch which profile/all is locked)')
+    .action(async (profileName: string | undefined) => {
+      const { runLock } = await import('./commands/lock.js');
+      await runLock(profileName).catch(fail);
     });
 
   program
-    .command('unblock')
-    .description('clear the LOCUS block from the hosts file')
+    .command('relock')
+    .description('re-lock now, ending any active unlock (used by the auto re-lock task)')
     .action(async () => {
-      const { runUnblock } = await import('./commands/unblock.js');
-      await runUnblock().catch(fail);
-    });
-
-  program
-    .command('focus <profile> <duration>')
-    .description('block a profile for a duration with a live countdown (e.g. 25m, 1h30m)')
-    .action(async (profileName: string, duration: string) => {
-      const { runFocus } = await import('./commands/focus.js');
-      await runFocus(profileName, duration).catch(fail);
+      const { runRelock } = await import('./commands/relock.js');
+      await runRelock().catch(fail);
     });
 
   program
     .command('status')
-    .description('show current block + active focus state')
+    .description('show whether sites are locked or temporarily unlocked')
     .action(async () => {
       const { runStatus } = await import('./commands/status.js');
       await runStatus().catch(fail);
@@ -112,7 +104,7 @@ async function main(): Promise<void> {
 
   program
     .command('streak')
-    .description('show focus session calendar and current streak')
+    .description('show the unlock-history calendar and current streak')
     .action(async () => {
       const { runStreak } = await import('./commands/streak.js');
       await runStreak().catch(fail);
@@ -120,7 +112,7 @@ async function main(): Promise<void> {
 
   program
     .command('setup')
-    .description('one-time WSL setup: grant your Windows user write access to the hosts file')
+    .description('one-time setup: grant your Windows user write access to the hosts file')
     .action(async () => {
       const { runSetup } = await import('./commands/setup.js');
       await runSetup().catch(fail);

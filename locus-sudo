@@ -24,17 +24,6 @@ if [[ ! -f "$entry" ]]; then
   exit 1
 fi
 
-# WSL: sudo is the wrong tool — Windows ACLs gate the Windows hosts file,
-# not Linux UID. Point users at the one-time setup instead.
-if grep -qiE 'microsoft|wsl' /proc/version 2>/dev/null \
-   || grep -qiE 'microsoft|wsl' /proc/sys/kernel/osrelease 2>/dev/null; then
-  echo "locus-sudo: detected WSL." >&2
-  echo "  on WSL, run 'locus setup' once (prompts UAC) to grant your Windows" >&2
-  echo "  user write access to the hosts file. after that, just run 'locus'" >&2
-  echo "  from any terminal — no sudo wrapper needed." >&2
-  exit 1
-fi
-
 if [[ ${EUID:-$(id -u)} -eq 0 ]]; then
   exec "$node_bin" "$entry" "$@"
 fi

@@ -8,9 +8,9 @@ interface DashboardProps {
 }
 
 const items: MenuItem<ScreenName>[] = [
+  { label: 'unlock', value: 'unlock' },
   { label: 'sites', value: 'sites' },
   { label: 'profiles', value: 'profiles' },
-  { label: 'focus', value: 'focus' },
   { label: 'streak', value: 'streak' },
   { label: 'status', value: 'status' },
   { label: 'quit', value: 'quit' },
@@ -20,7 +20,7 @@ export function Dashboard({ onNavigate }: DashboardProps): React.JSX.Element {
   return (
     <Box flexDirection="column" paddingX={2} paddingY={1}>
       <Box marginBottom={1}>
-        <Text dimColor>minimal site blocker · monochrome</Text>
+        <Text dimColor>always locked · solve to unlock · monochrome</Text>
       </Box>
       <Menu items={items} onSelect={(item) => onNavigate(item.value)} />
       <Box marginTop={1}>

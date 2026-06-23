@@ -1,3 +1,4 @@
+import os from 'node:os';
 import { execa } from 'execa';
 import { getPlatform } from './platform.js';
 import { isElevated } from './privileges.js';
@@ -5,7 +6,7 @@ import { isElevated } from './privileges.js';
 export type InstallReason =
   | 'declined'
   | 'failed'
-  | 'not-wsl'
+  | 'not-windows'
   | 'already-writable';
 
 export interface InstallResult {
@@ -16,20 +17,15 @@ export interface InstallResult {
 
 const HOSTS_WIN_PATH = 'C:\\Windows\\System32\\drivers\\etc\\hosts';
 
-let cachedWinUser: string | null = null;
-
-async function getWindowsUser(): Promise<string> {
-  if (cachedWinUser) return cachedWinUser;
-  const { stdout } = await execa('cmd.exe', ['/C', 'echo %USERNAME%']);
-  const user = stdout.replace(/[\r\n]+$/, '').trim();
+function getWindowsUser(): string {
+  const user = (process.env.USERNAME ?? os.userInfo().username).trim();
   if (!user) throw new Error('could not resolve windows username');
-  cachedWinUser = user;
   return user;
 }
 
 export async function grantHostsWriteAccess(): Promise<InstallResult> {
-  if (getPlatform() !== 'wsl') {
-    return { ok: false, reason: 'not-wsl' };
+  if (getPlatform() !== 'win32') {
+    return { ok: false, reason: 'not-windows' };
   }
   if (await isElevated()) {
     return { ok: true, reason: 'already-writable' };
@@ -37,7 +33,7 @@ export async function grantHostsWriteAccess(): Promise<InstallResult> {
 
   let user: string;
   try {
-    user = await getWindowsUser();
+    user = getWindowsUser();
   } catch (err) {
     return {
       ok: false,
