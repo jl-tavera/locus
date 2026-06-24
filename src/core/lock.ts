@@ -11,6 +11,7 @@ import {
 import { getProfileHostnames } from './profiles.js';
 import { clearBlock, getActiveBlock, writeBlock } from './hosts.js';
 import { flushDns } from './dns.js';
+import { cycleBrowsers } from './browsers.js';
 import { recordSession, type SessionStatus } from './sessions.js';
 import { cancelRelock, scheduleRelock } from './scheduler.js';
 
@@ -91,6 +92,9 @@ export async function startUnlock(durationMs: number): Promise<{ endsAt: Date }>
 
   await clearBlock();
   await flushDns();
+  // Restart Brave (Windows) so it drops its cached 127.0.0.1 resolution and the
+  // site loads immediately — the hosts block is already gone by this point.
+  await cycleBrowsers();
 
   const window: UnlockWindow = {
     profileId: getLockProfileId(),

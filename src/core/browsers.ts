@@ -32,12 +32,45 @@ const RELAUNCH_ENV = [
 export async function cycleBrowsers(): Promise<void> {
   if (process.env.LOCUS_NO_BROWSER_RESTART) return;
   if (process.env.LOCUS_HOSTS_PATH) return;
-  // Only Linux cycles browsers. On Windows/macOS we deliberately leave every
-  // browser untouched: editing the hosts file + flushing DNS is what enforces a
-  // block. Killing the browser was only a convenience so already-open tabs
-  // noticed immediately — not worth force-closing the user's windows for.
-  if (getPlatform() === 'linux') {
+  // Brave (and every Chromium browser) keeps an in-process DNS/host cache that
+  // survives the OS-level `ipconfig /flushdns`, so an unblocked site keeps
+  // resolving to 127.0.0.1 until a manual refresh. Restarting the browser clears
+  // that cache. On Windows we restart Brave only, and gracefully (no force-kill —
+  // /F left orphaned processes holding the profile lock). macOS stays untouched.
+  const platform = getPlatform();
+  if (platform === 'linux') {
     await cycleLinuxBrowsers();
+  } else if (platform === 'win32') {
+    await cycleWindowsBrave();
+  }
+}
+
+/**
+ * Gracefully restart Brave on Windows so it drops its cached resolution of a
+ * just-unblocked site. Best-effort: any failure is swallowed (the hosts edit +
+ * DNS flush already enforce the change; this is only for immediacy). We capture
+ * the running brave.exe path first and bail if we can't — never close a browser
+ * we can't reopen. CloseMainWindow() lets Brave save its session so
+ * "continue where you left off" restores the tabs on relaunch.
+ */
+async function cycleWindowsBrave(): Promise<void> {
+  const ps = [
+    `$procs = Get-Process -Name brave -ErrorAction SilentlyContinue`,
+    `if (-not $procs) { return }`,
+    `$path = $procs | Where-Object Path | Select-Object -First 1 -ExpandProperty Path`,
+    `if (-not $path) { return }`,
+    `$procs | ForEach-Object { $_.CloseMainWindow() | Out-Null }`,
+    `for ($i = 0; $i -lt 25; $i++) {`,
+    `  Start-Sleep -Milliseconds 200`,
+    `  if (-not (Get-Process -Name brave -ErrorAction SilentlyContinue)) { break }`,
+    `}`,
+    `Start-Process -FilePath $path`,
+  ].join('\n');
+
+  try {
+    await execa('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', ps]);
+  } catch (err) {
+    console.error(`locus: failed to restart brave: ${(err as Error).message}`);
   }
 }
 
