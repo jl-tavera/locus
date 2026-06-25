@@ -92,9 +92,6 @@ export async function startUnlock(durationMs: number): Promise<{ endsAt: Date }>
 
   await clearBlock();
   await flushDns();
-  // Restart Brave (Windows) so it drops its cached 127.0.0.1 resolution and the
-  // site loads immediately — the hosts block is already gone by this point.
-  await cycleBrowsers();
 
   const window: UnlockWindow = {
     profileId: getLockProfileId(),
@@ -133,6 +130,9 @@ export async function endUnlock(status: SessionStatus = 'completed'): Promise<vo
     }
   }
   await applyLock();
+  // Restart Brave (Windows) so it drops its cached resolution and the re-blocked
+  // site stops loading immediately — symmetric with the restart in startUnlock.
+  await cycleBrowsers();
   clearActiveUnlock();
   await cancelRelock();
 }
