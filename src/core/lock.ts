@@ -25,6 +25,12 @@ export type LockState = 'locked' | 'unlocked';
 
 export interface RecoverResult {
   state: LockState;
+  /**
+   * False only when we tried to re-block and the write failed — the hosts file
+   * is *not* enforcing and `activeUnlock` is still set. Never report a bare
+   * 'locked' in that case; callers surface it and the guard task retries.
+   */
+  enforced: boolean;
   endsAt?: Date;
   remainingMs?: number;
 }
@@ -107,8 +113,17 @@ export async function startUnlock(durationMs: number): Promise<{ endsAt: Date }>
 /** Re-lock now, recording the unlock as a session, and clear the scheduled task. */
 export async function endUnlock(status: SessionStatus = 'completed'): Promise<void> {
   const window = getActiveUnlock();
+  // Stamp the end before re-blocking so the recorded duration isn't inflated by
+  // applyLock() + the browser restart, which take seconds.
+  const endedAt = new Date();
+
+  // Re-block FIRST. If this throws we record nothing and leave `activeUnlock`
+  // set: disk still says "unlocked", which is the truth, and the next
+  // recover()/guard run retries. Recording first would commit a session row that
+  // gets duplicated on every retry (and inflate the streak).
+  await applyLock();
+
   if (window) {
-    const endedAt = new Date();
     const startedAtMs = new Date(window.startedAt).getTime();
     const profileName =
       window.profileId === null
@@ -129,9 +144,9 @@ export async function endUnlock(status: SessionStatus = 'completed'): Promise<vo
       console.error(`warning: failed to record unlock (${msg})`);
     }
   }
-  await applyLock();
+
   // Restart Brave (Windows) so it drops its cached resolution and the re-blocked
-  // site stops loading immediately — symmetric with the restart in startUnlock.
+  // site stops loading immediately — its in-process host cache outlives flushdns.
   await cycleBrowsers();
   clearActiveUnlock();
   await cancelRelock();
@@ -164,7 +179,7 @@ export function peekActiveUnlock(): { endsAt: Date } | null {
  */
 export async function recover(): Promise<RecoverResult> {
   const window = getActiveUnlock();
-  if (!window) return { state: 'locked' };
+  if (!window) return { state: 'locked', enforced: true };
   const endsAt = new Date(window.endsAt);
   if (endsAt.getTime() <= Date.now()) {
     try {
@@ -172,8 +187,14 @@ export async function recover(): Promise<RecoverResult> {
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.error(`warning: failed to re-lock expired unlock (${msg})`);
+      return { state: 'locked', enforced: false };
     }
-    return { state: 'locked' };
+    return { state: 'locked', enforced: true };
   }
-  return { state: 'unlocked', endsAt, remainingMs: endsAt.getTime() - Date.now() };
+  return {
+    state: 'unlocked',
+    enforced: true,
+    endsAt,
+    remainingMs: endsAt.getTime() - Date.now(),
+  };
 }

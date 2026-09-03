@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
-import { writeFileSync } from 'node:fs';
+import { writeFileSync, rmSync } from 'node:fs';
 import Database from 'better-sqlite3';
 import { makeTmpHosts, setTmpConfigDir, type TmpHosts, type TmpConfigDir } from '../helpers/tmp-env.js';
 
@@ -89,6 +89,7 @@ describe('lock / unlock lifecycle', () => {
     store.setActiveUnlock({ ...win, endsAt: new Date(Date.now() - 1000).toISOString() });
     const result = await lock.recover();
     expect(result.state).toBe('locked');
+    expect(result.enforced).toBe(true);
     expect(await hosts.getActiveBlock()).toEqual(['example.com']);
     expect(store.getActiveUnlock()).toBeNull();
   });
@@ -99,7 +100,39 @@ describe('lock / unlock lifecycle', () => {
     await lock.startUnlock(10 * 60_000);
     const result = await lock.recover();
     expect(result.state).toBe('unlocked');
+    expect(result.enforced).toBe(true);
     expect(result.remainingMs ?? 0).toBeGreaterThan(0);
+  });
+
+  // Regression: recordSession() used to run *before* applyLock(). A failed
+  // re-block therefore committed a session row while leaving activeUnlock set,
+  // so every later retry recorded another duplicate and inflated the streak.
+  it('endUnlock records nothing and keeps the window when re-blocking fails', async () => {
+    store.addSite('example.com');
+    await lock.applyLock();
+    await lock.startUnlock(5 * 60_000);
+    // Removing the hosts file makes backupHosts() -> readFile throw ENOENT,
+    // which is how a real permission failure surfaces out of applyLock().
+    rmSync(tmpHosts.hostsPath, { force: true });
+
+    await expect(lock.endUnlock('completed')).rejects.toThrow();
+    expect(sessions.listAllSessions()).toHaveLength(0);
+    expect(store.getActiveUnlock()).not.toBeNull();
+  });
+
+  it('recover reports enforced=false when it cannot re-apply the block', async () => {
+    store.addSite('example.com');
+    await lock.applyLock();
+    await lock.startUnlock(5 * 60_000);
+    const win = store.getActiveUnlock()!;
+    store.setActiveUnlock({ ...win, endsAt: new Date(Date.now() - 1000).toISOString() });
+    rmSync(tmpHosts.hostsPath, { force: true });
+
+    const result = await lock.recover();
+    expect(result.state).toBe('locked');
+    expect(result.enforced).toBe(false);
+    // still unlocked on disk — the guard task retries rather than reporting a lie
+    expect(store.getActiveUnlock()).not.toBeNull();
   });
 
   it('locks only the chosen profile when one is set', async () => {
