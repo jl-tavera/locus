@@ -95,6 +95,14 @@ async function main(): Promise<void> {
     });
 
   program
+    .command('guard')
+    .description('re-assert the lock unless an unlock is live (used by the background guard task)')
+    .action(async () => {
+      const { runGuard } = await import('./commands/guard.js');
+      await runGuard().catch(fail);
+    });
+
+  program
     .command('status')
     .description('show whether sites are locked or temporarily unlocked')
     .action(async () => {
