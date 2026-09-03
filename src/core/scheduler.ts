@@ -11,6 +11,10 @@ const RELOCK_TASK = 'locus-relock';
 // guard` at logon and every few minutes forever, so a lost re-lock self-heals.
 const GUARD_TASK = 'locus-guard';
 const GUARD_INTERVAL_MIN = 5;
+// How long the guard may go without a tick before `locus status` calls it out.
+// Three intervals: one missed tick is normal (the machine slept, a tick
+// overlapped), three in a row means it is not running.
+const GUARD_STALE_AFTER_MS = GUARD_INTERVAL_MIN * 3 * 60_000;
 
 function schedulingEnabled(): boolean {
   // Dev sandbox edits a temp hosts file and must not touch the real Task
@@ -58,7 +62,9 @@ async function runPowerShell(script: string): Promise<string> {
  *
  * `--headless` is undocumented, hence the two hedges: fall back to launching node
  * directly if conhost.exe is missing, and note that conhost swallows the child's
- * exit code, so the task reports 0x0 whatever the tick actually did.
+ * exit code (the task always reports 0x0). Nothing reads LastTaskResult —
+ * `checkGuardHealth()` watches LastRunTime, which stays accurate and is what
+ * would catch this arrangement breaking on some future Windows build.
  */
 function actionPs(node: string, entry: string, sub: string): string {
   const conhost = path.join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'conhost.exe');
@@ -166,4 +172,47 @@ export async function unregisterGuardTask(): Promise<void> {
   } catch {
     // absent or scheduler unavailable
   }
+}
+
+export type GuardHealth =
+  | { state: 'ok' }
+  | { state: 'missing' }
+  | { state: 'stale'; lastRun: Date | null };
+
+/**
+ * Whether the guard is installed *and* actually ticking. Never throws.
+ *
+ * Registration alone is not evidence it works: the task can sit there `Ready`
+ * while every run fails to launch, and conhost hides the child's exit code so
+ * LastTaskResult stays a reassuring 0x0. LastRunTime is set by the scheduler
+ * itself, so it stays honest — a guard that has not run in GUARD_STALE_AFTER_MS
+ * is not backstopping anything, and `locus status` is the only place the user
+ * would ever find out.
+ */
+export async function checkGuardHealth(): Promise<GuardHealth> {
+  if (!schedulingEnabled()) return { state: 'ok' };
+  let out: string;
+  try {
+    out = await runPowerShell(
+      [
+        `$i = Get-ScheduledTaskInfo -TaskName ${q(GUARD_TASK)} -ErrorAction SilentlyContinue`,
+        `if (-not $i) { 'missing' }`,
+        // A task registered but never run reports a null/sentinel LastRunTime.
+        `elseif (-not $i.LastRunTime -or $i.LastRunTime.Year -lt 2000) { 'never' }`,
+        `else { $i.LastRunTime.ToUniversalTime().ToString('o') }`,
+      ].join('; '),
+    );
+  } catch {
+    // scheduler unavailable — no basis to claim the guard is broken
+    return { state: 'ok' };
+  }
+
+  const value = out.trim();
+  if (value === 'missing') return { state: 'missing' };
+  if (value === 'never') return { state: 'stale', lastRun: null };
+
+  const lastRun = new Date(value);
+  if (Number.isNaN(lastRun.getTime())) return { state: 'ok' };
+  if (Date.now() - lastRun.getTime() > GUARD_STALE_AFTER_MS) return { state: 'stale', lastRun };
+  return { state: 'ok' };
 }
