@@ -5,9 +5,11 @@ import { applyLock, recover } from '../core/lock.js';
 import { getPlatform } from '../core/platform.js';
 import { isElevated } from '../core/privileges.js';
 import { grantHostsWriteAccess } from '../core/install.js';
+import { registerGuardTask } from '../core/scheduler.js';
 
 export async function launchTui(): Promise<void> {
   await maybeFirstRunSetup();
+  ensureGuardTask();
   const recovered = await recover();
 
   // Re-assert the locked-by-default state whenever the app opens (unless we're
@@ -26,6 +28,24 @@ export async function launchTui(): Promise<void> {
     exitOnCtrlC: false,
   });
   await waitUntilExit();
+}
+
+/**
+ * Keep the background guard task installed, on every launch.
+ *
+ * Deliberately not awaited: `Register-ScheduledTask` costs a PowerShell spawn
+ * (a few hundred ms) and nothing on screen depends on it, so blocking the TUI
+ * behind it would be a visible startup regression. `-Force` makes it idempotent,
+ * so re-registering every launch is fine, and the process stays alive for the
+ * whole TUI session — far longer than the call needs. A launch too short to
+ * finish just retries next time; `locus setup` is the deterministic path.
+ *
+ * This sits outside maybeFirstRunSetup() on purpose: that returns early when the
+ * hosts grant already exists, which is exactly the case for every user who
+ * installed locus before the guard existed.
+ */
+function ensureGuardTask(): void {
+  void registerGuardTask().catch(() => undefined);
 }
 
 async function maybeFirstRunSetup(): Promise<void> {
